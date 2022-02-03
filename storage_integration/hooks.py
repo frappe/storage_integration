@@ -111,6 +111,12 @@ app_license = "MIT"
 # 		"on_trash": "method"
 #	}
 # }
+doc_events = {
+	"File": {
+		"after_insert": "storage_integration.controller.upload_to_s3",
+		"on_trash": "storage_integration.controller.delete_from_s3",
+	}
+}
 
 # Scheduled Tasks
 # ---------------
