@@ -13,11 +13,12 @@ class MinioConnection:
 		self.client = Minio(
 			"localhost:9008",
 			access_key=self.settings.access_key,
-			secret_key=get_decrypted_password("Storage Integration Settings", "Storage Integration Settings", "secret_key"),
+			secret_key=get_decrypted_password(
+				"Storage Integration Settings", "Storage Integration Settings", "secret_key"
+			),
 			region=self.settings.region,
 			secure=False,
 		)
-
 
 	def upload_file(self):
 		key = self.get_object_key()
@@ -33,11 +34,9 @@ class MinioConnection:
 		self.file.save()
 		frappe.db.commit()
 
-
 	def delete_file(self):
 		obj_key = self.get_object_key()
 		self.client.remove_object(self.settings.bucket_name, obj_key)
-
 
 	def download_file(self):
 		obj_key = self.get_object_key()
@@ -53,7 +52,6 @@ class MinioConnection:
 		finally:
 			response.close()
 			response.release_conn()
-
 
 	def get_object_key(self):
 		match = re.search(r"\bhttps://\b", self.file.file_url)
