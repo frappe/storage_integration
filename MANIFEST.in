@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include storage_integration *.css
+recursive-include storage_integration *.csv
+recursive-include storage_integration *.html
+recursive-include storage_integration *.ico
+recursive-include storage_integration *.js
+recursive-include storage_integration *.json
+recursive-include storage_integration *.md
+recursive-include storage_integration *.png
+recursive-include storage_integration *.py
+recursive-include storage_integration *.svg
+recursive-include storage_integration *.txt
+recursive-exclude storage_integration *.pyc
