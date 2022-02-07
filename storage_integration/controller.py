@@ -78,8 +78,26 @@ def delete_from_s3(doc, method):
 	conn.delete_file()
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def download_from_s3(doc_name):
 	doc = frappe.get_doc("File", doc_name)
 	conn = MinioConnection(doc)
 	conn.download_file()
+
+
+@frappe.whitelist()
+def migrate_existing_files():
+	files = frappe.get_all("File", pluck="name", filters={"file_url": ("!=", "")})
+
+	for file in files:
+		doc = frappe.get_doc("File", file)
+		upload_to_s3(doc, None)
+
+
+@frappe.whitelist()
+def remove_all_data():
+	files = frappe.get_all("File", pluck="name", filters={"file_url": ("!=", "")})
+
+	for file in files:
+		doc = frappe.get_doc("File", file)
+		delete_from_s3(doc, None)
