@@ -11,7 +11,7 @@ class MinioConnection:
 		self.settings = frappe.get_doc("Storage Integration Settings", None)
 		self.file = doc
 		self.client = Minio(
-			"localhost:9008",
+			self.settings.ip,
 			access_key=self.settings.access_key,
 			secret_key=get_decrypted_password(
 				"Storage Integration Settings", "Storage Integration Settings", "secret_key"

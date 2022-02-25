@@ -1,12 +1,13 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2022-02-03 19:06:08.081467",
+ "creation": "2022-02-05 21:07:32.523914",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "bucket_setttings_section",
+  "ip",
   "bucket_name",
   "region",
   "access_key",
@@ -38,12 +39,17 @@
    "fieldname": "bucket_setttings_section",
    "fieldtype": "Section Break",
    "label": "Bucket Setttings"
+  },
+  {
+   "fieldname": "ip",
+   "fieldtype": "Data",
+   "label": "IP"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2022-02-03 19:07:38.668008",
+ "modified": "2022-02-10 12:51:41.551378",
  "modified_by": "Administrator",
  "module": "Storage Integration",
  "name": "Storage Integration Settings",
