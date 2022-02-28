@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2022-02-28 20:29:21.552680",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2022-02-28 20:29:25.990322",
+ "modified_by": "Administrator",
+ "module": "Storage Integration",
+ "name": "storage-backups",
+ "owner": "Administrator",
+ "page_name": "storage-backups",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 1,
+ "title": "Storage Integration Backups"
+}
