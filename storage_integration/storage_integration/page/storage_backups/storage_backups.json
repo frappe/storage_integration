@@ -4,16 +4,20 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2022-02-28 20:29:25.990322",
+ "modified": "2022-03-01 19:50:33.372699",
  "modified_by": "Administrator",
  "module": "Storage Integration",
  "name": "storage-backups",
  "owner": "Administrator",
  "page_name": "storage-backups",
- "roles": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,
- "system_page": 1,
+ "system_page": 0,
  "title": "Storage Integration Backups"
 }
