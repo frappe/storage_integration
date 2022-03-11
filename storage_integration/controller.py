@@ -38,6 +38,37 @@ class MinioConnection:
 		self.file.save()
 		frappe.db.commit()
 
+	def upload_backup(self, path):
+		with open(path, "rb") as f:
+			self.client.fput_object(self.settings.bucket_name, path[2:], path)
+
+		# on upload successful create storage_backup_doc()
+		url = re.search(r"\bbackups/\b", path)
+
+		doc = frappe.get_doc(
+			{
+				"doctype": "Storage Backup",
+				"file_name": path[url.span()[1] :],
+				"key": path[2:],
+				"available": 1,
+			}
+		)
+
+		doc.insert()
+		os.remove(path)
+		frappe.db.commit()
+
+	def download_backup(self, file_name):
+		key = frappe.local.site + "/private" + "/backups/" + file_name
+		try:
+			response = self.client.get_object(self.settings.bucket_name, key)
+			frappe.local.response["filename"] = file_name
+			frappe.local.response["filecontent"] = response.read()
+			frappe.local.response["type"] = "download"
+		finally:
+			response.close()
+			response.release_conn()
+
 	def delete_file(self):
 		obj_key = self.get_object_key()
 		self.client.remove_object(self.settings.bucket_name, obj_key)
@@ -105,6 +136,12 @@ def download_from_s3(doc_name):
 	doc = frappe.get_doc("File", doc_name)
 	conn = MinioConnection(doc)
 	conn.download_file(action_type="download")
+
+
+@frappe.whitelist(allow_guest=True)
+def download_backup(file_name):
+	conn = MinioConnection(None)
+	conn.download_backup(file_name)
 
 
 @frappe.whitelist()
