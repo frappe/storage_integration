@@ -20,6 +20,13 @@ S3 Storage Integration for Frappe Cloud, that stores everything including backup
 * Add the keys in the doctype below
 <img width="1376" alt="Screenshot 2022-02-25 at 5 37 43 PM" src="https://user-images.githubusercontent.com/50401596/155713102-22415afd-6775-4034-89f5-d32583050e01.png">
 
+#### Backups
+* Use the Storage Integration Backups page (search in Awesomebar!) to take latest backups.
+* These backups are stored on S3 and you can download them from this same page
+
+<img width="1428" alt="Screenshot 2022-03-11 at 3 35 56 PM" src="https://user-images.githubusercontent.com/50401596/157846908-d635942c-343d-48a8-99ca-2f6dd1d647e6.png">
+
+
 #### License
 
 MIT
