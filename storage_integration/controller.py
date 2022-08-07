@@ -21,22 +21,24 @@ class MinioConnection:
 		)
 
 	def upload_file(self):
-		if re.search(r"\bhttps://\b", self.file.file_url):
-			# if file already on s3
-			return
+		if not self.file.is_folder:
+			if re.search(r"\bhttps://\b", self.file.file_url):
+				# if file already on s3
+				return
 
-		key = self.get_object_key()
-		with open("./" + key, "rb") as f:
-			self.client.put_object(
-				self.settings.bucket_name, key, f, length=-1, part_size=10 * 1024 * 1024
-			)
+			key, fkey = self.get_object_key()
 
-		method = "storage_integration.controller.download_from_s3"
-		self.file.file_url = f"https://{frappe.local.site}/api/method/{method}?doc_name={self.file.name}&local_file_url={self.file.file_url}"
+			with open("./" + key, "rb") as f:
+				self.client.put_object(
+					self.settings.bucket_name, fkey, f, length=-1, part_size=10 * 1024 * 1024
+				)
 
-		os.remove("./" + key)
-		self.file.save()
-		frappe.db.commit()
+			method = "storage_integration.controller.download_from_s3"
+			self.file.file_url = f"https://{frappe.local.site}/api/method/{method}?doc_name={self.file.name}&local_file_url={fkey}"
+
+			os.remove("./" + key)
+			self.file.save()
+			frappe.db.commit()
 
 	def upload_backup(self, path):
 		with open(path, "rb") as f:
@@ -70,25 +72,25 @@ class MinioConnection:
 			response.release_conn()
 
 	def delete_file(self):
-		obj_key = self.get_object_key()
-		self.client.remove_object(self.settings.bucket_name, obj_key)
+		key, fkey = self.get_object_key()
+		self.client.remove_object(self.settings.bucket_name, fkey)
 
 	def download_file(self, action_type):
-		obj_key = self.get_object_key()
+		key, fkey = self.get_object_key()
 
 		try:
 			response = self.client.get_object(
-				self.settings.bucket_name, obj_key, self.file.file_name
+				self.settings.bucket_name, fkey, self.file.file_name
 			)
 			if action_type == "download":
 				frappe.local.response["filename"] = self.file.file_name
 				frappe.local.response["filecontent"] = response.read()
 				frappe.local.response["type"] = "download"
 			elif action_type == "clone":
-				with open("./" + obj_key, "wb") as f:
+				with open("./" + key, "wb") as f:
 					f.write(response.read())
 			elif action_type == "restore":
-				with open("./" + obj_key, "wb") as f:
+				with open("./" + key, "wb") as f:
 					f.write(response.read())
 
 					if self.file.is_private:
@@ -96,9 +98,9 @@ class MinioConnection:
 					else:
 						pattern = "/public"
 
-					match = re.search(rf"\b{pattern}\b", obj_key)
-					obj_key = obj_key[match.span()[1] :]
-					self.file.file_url = obj_key
+					match = re.search(rf"\b{pattern}\b", key)
+					key = key[match.span()[1] :]
+					self.file.file_url = key
 					self.file.save()
 
 			frappe.db.commit()
@@ -115,10 +117,14 @@ class MinioConnection:
 
 		if not self.file.is_private:
 			key = frappe.local.site + "/public" + self.file.file_url
+			fkey = frappe.local.site + "/public" + "/" + self.file.folder + "/" + self.file.file_name
 		else:
 			key = frappe.local.site + self.file.file_url
+			fkey = frappe.local.site + "/" + self.file.folder + "/" + self.file.file_name
 
-		return key
+		return key, fkey
+
+		
 
 
 def upload_to_s3(doc, method):
