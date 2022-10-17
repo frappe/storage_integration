@@ -124,6 +124,13 @@ class MinioConnection:
 
 		return key, fkey
 
+	def read_file(self):
+		key, fkey = self.get_object_key()
+		response = self.client.get_object(
+			self.settings.bucket_name, fkey, self.file.file_name
+		)
+		return response
+
 		
 
 
@@ -133,15 +140,24 @@ def upload_to_s3(doc, method):
 
 
 def delete_from_s3(doc, method):
-	conn = MinioConnection(doc)
-	conn.delete_file()
-
+	if doc.file_url.startswith("https://" + frappe.local.site + "/api/method/storage_integration"):
+		conn = MinioConnection(doc)
+		conn.delete_file()
+	else:
+		frappe.delete_doc("File", doc.name, ignore_on_trash=True)
+		
 
 @frappe.whitelist()
 def download_from_s3(doc_name):
 	doc = frappe.get_doc("File", doc_name)
 	conn = MinioConnection(doc)
 	conn.download_file(action_type="download")
+
+@frappe.whitelist()
+def read_from_s3(doc_name):
+	doc = frappe.get_doc("File", doc_name)
+	conn = MinioConnection(doc)
+	conn.read_file()
 
 
 @frappe.whitelist(allow_guest=True)
