@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import frappe
 from frappe.utils.password import get_decrypted_password
 import os
@@ -77,10 +78,11 @@ class MinioConnection:
 
 	def download_file(self, action_type):
 		key, fkey = self.get_object_key()
-
+		hash = self.file.content_hash
+		file_new = append_id(hash, replace_umlauts(self.file.file_name))
 		try:
 			response = self.client.get_object(
-				self.settings.bucket_name, fkey, self.file.file_name
+				self.settings.bucket_name, fkey, file_new
 			)
 			if action_type == "download":
 				frappe.local.response["filename"] = self.file.file_name
@@ -110,32 +112,52 @@ class MinioConnection:
 
 	def get_object_key(self):
 		match = re.search(r"\bhttps://\b", self.file.file_url)
-
+		url = frappe.db.get_value('File', self.file.name, 'file_url')
+		hash = self.file.content_hash
 		if match:
 			query = urlparse(self.file.file_url).query
 			self.file.file_url = parse_qs(query)["local_file_url"][0]
 
 		if not self.file.is_private:
-			key = frappe.local.site + "/public" + self.file.file_url
-			fkey = frappe.local.site + "/public" + "/" + self.file.folder + "/" + self.file.file_name
+			key = frappe.local.site + "/public" + url
+			fkey = frappe.local.site + "/public" + "/" + self.file.folder + "/" + append_id(hash, replace_umlauts(self.file.file_name))
 		else:
-			key = frappe.local.site + self.file.file_url
-			fkey = frappe.local.site + "/" + self.file.folder + "/" + self.file.file_name
+			key = frappe.local.site + url
+			fkey = frappe.local.site + "/" + self.file.folder + "/" + append_id(hash, replace_umlauts(self.file.file_name))
 
 		return key, fkey
-
-	def read_file(self):
+	
+	def file_rename(self):
 		key, fkey = self.get_object_key()
-		response = self.client.get_object(
-			self.settings.bucket_name, fkey, self.file.file_name
-		)
-		return response
+		hash = self.file.content_hash
+		key_new = append_id(hash, replace_umlauts(key))
+		url_new = file_new = append_id(hash, replace_umlauts(self.file.file_url))
+		# file = frappe.get_doc("File", doc)
+		# if not file.is_private:
+		# 	key = frappe.local.site + "/public" + file.file_url
+		# 	key_new = frappe.local.site + "/public" + replace_umlauts(file.file_url)
+		# else:
+		# 	key = frappe.local.site + file.file_url
+		# 	key_new = frappe.local.site + replace_umlauts(file.file_url)
+
+		os.rename("./" + key, "./" + key_new)
+		frappe.db.set_value('File', self.file.name, 'file_url', url_new, update_modified=False)
+		frappe.db.commit()
+	
+	# def read_file(self):
+	# 	key, fkey = self.get_object_key()
+	# 	response = self.client.get_object(
+	# 		self.settings.bucket_name, fkey, self.file.file_name
+	# 	)
+	# 	return response
+
 
 		
 
 
 def upload_to_s3(doc, method):
 	conn = MinioConnection(doc)
+	conn.file_rename()
 	conn.upload_file()
 
 
@@ -192,3 +214,15 @@ def clone_files(action_type):
 		doc = frappe.get_doc("File", file)
 		conn = MinioConnection(doc)
 		conn.download_file(action_type=action_type)
+
+def replace_umlauts(text:str) -> str:
+	"""replace special German umlauts (vowel mutations) from text. 
+	ä -> ae...
+	ü -> ue 
+	"""
+	vowel_char_map = {ord('ä'):'ae', ord('ü'):'ue', ord('ö'):'oe', ord('ß'):'ss', ord('\u0308'):''}
+	return text.translate(vowel_char_map)
+
+def append_id(hash, filename):
+	name, ext = os.path.splitext(filename)
+	return "{name}_{uid}{ext}".format(name=name, uid=hash[:4], ext=ext)
