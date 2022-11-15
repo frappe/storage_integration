@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import frappe
 from frappe.utils.password import get_decrypted_password
 import os
@@ -21,22 +22,24 @@ class MinioConnection:
 		)
 
 	def upload_file(self):
-		if re.search(r"\bhttps://\b", self.file.file_url):
-			# if file already on s3
-			return
+		if not self.file.is_folder:
+			if re.search(r"\bhttps://\b", self.file.file_url):
+				# if file already on s3
+				return
 
-		key = self.get_object_key()
-		with open("./" + key, "rb") as f:
-			self.client.put_object(
-				self.settings.bucket_name, key, f, length=-1, part_size=10 * 1024 * 1024
-			)
+			key, fkey = self.get_object_key()
 
-		method = "storage_integration.controller.download_from_s3"
-		self.file.file_url = f"https://{frappe.local.site}/api/method/{method}?doc_name={self.file.name}&local_file_url={self.file.file_url}"
+			with open("./" + key, "rb") as f:
+				self.client.put_object(
+					self.settings.bucket_name, fkey, f, length=-1, part_size=10 * 1024 * 1024
+				)
 
-		os.remove("./" + key)
-		self.file.save()
-		frappe.db.commit()
+			method = "storage_integration.controller.download_from_s3"
+			self.file.file_url = f"https://{frappe.local.site}/api/method/{method}?doc_name={self.file.name}&local_file_url={fkey}"
+
+			os.remove("./" + key)
+			self.file.save()
+			frappe.db.commit()
 
 	def upload_backup(self, path):
 		with open(path, "rb") as f:
@@ -70,25 +73,26 @@ class MinioConnection:
 			response.release_conn()
 
 	def delete_file(self):
-		obj_key = self.get_object_key()
-		self.client.remove_object(self.settings.bucket_name, obj_key)
+		key, fkey = self.get_object_key()
+		self.client.remove_object(self.settings.bucket_name, fkey)
 
 	def download_file(self, action_type):
-		obj_key = self.get_object_key()
-
+		key, fkey = self.get_object_key()
+		hash = self.file.content_hash
+		file_new = append_id(hash, replace_umlauts(self.file.file_name))
 		try:
 			response = self.client.get_object(
-				self.settings.bucket_name, obj_key, self.file.file_name
+				self.settings.bucket_name, fkey, file_new
 			)
 			if action_type == "download":
 				frappe.local.response["filename"] = self.file.file_name
 				frappe.local.response["filecontent"] = response.read()
 				frappe.local.response["type"] = "download"
 			elif action_type == "clone":
-				with open("./" + obj_key, "wb") as f:
+				with open("./" + key, "wb") as f:
 					f.write(response.read())
 			elif action_type == "restore":
-				with open("./" + obj_key, "wb") as f:
+				with open("./" + key, "wb") as f:
 					f.write(response.read())
 
 					if self.file.is_private:
@@ -96,9 +100,9 @@ class MinioConnection:
 					else:
 						pattern = "/public"
 
-					match = re.search(rf"\b{pattern}\b", obj_key)
-					obj_key = obj_key[match.span()[1] :]
-					self.file.file_url = obj_key
+					match = re.search(rf"\b{pattern}\b", key)
+					key = key[match.span()[1] :]
+					self.file.file_url = key
 					self.file.save()
 
 			frappe.db.commit()
@@ -108,34 +112,74 @@ class MinioConnection:
 
 	def get_object_key(self):
 		match = re.search(r"\bhttps://\b", self.file.file_url)
-
+		url = frappe.db.get_value('File', self.file.name, 'file_url')
+		hash = self.file.content_hash
 		if match:
 			query = urlparse(self.file.file_url).query
 			self.file.file_url = parse_qs(query)["local_file_url"][0]
 
 		if not self.file.is_private:
-			key = frappe.local.site + "/public" + self.file.file_url
+			key = frappe.local.site + "/public" + url
+			fkey = frappe.local.site + "/public" + "/" + self.file.folder + "/" + append_id(hash, replace_umlauts(self.file.file_name))
 		else:
-			key = frappe.local.site + self.file.file_url
+			key = frappe.local.site + url
+			fkey = frappe.local.site + "/" + self.file.folder + "/" + append_id(hash, replace_umlauts(self.file.file_name))
 
-		return key
+		return key, fkey
+	
+	def file_rename(self):
+		key, fkey = self.get_object_key()
+		hash = self.file.content_hash
+		key_new = append_id(hash, replace_umlauts(key))
+		url_new = file_new = append_id(hash, replace_umlauts(self.file.file_url))
+		# file = frappe.get_doc("File", doc)
+		# if not file.is_private:
+		# 	key = frappe.local.site + "/public" + file.file_url
+		# 	key_new = frappe.local.site + "/public" + replace_umlauts(file.file_url)
+		# else:
+		# 	key = frappe.local.site + file.file_url
+		# 	key_new = frappe.local.site + replace_umlauts(file.file_url)
+
+		os.rename("./" + key, "./" + key_new)
+		frappe.db.set_value('File', self.file.name, 'file_url', url_new, update_modified=False)
+		frappe.db.commit()
+	
+	# def read_file(self):
+	# 	key, fkey = self.get_object_key()
+	# 	response = self.client.get_object(
+	# 		self.settings.bucket_name, fkey, self.file.file_name
+	# 	)
+	# 	return response
+
+
+		
 
 
 def upload_to_s3(doc, method):
 	conn = MinioConnection(doc)
+	conn.file_rename()
 	conn.upload_file()
 
 
 def delete_from_s3(doc, method):
-	conn = MinioConnection(doc)
-	conn.delete_file()
-
+	if doc.file_url.startswith("https://" + frappe.local.site + "/api/method/storage_integration"):
+		conn = MinioConnection(doc)
+		conn.delete_file()
+	else:
+		frappe.delete_doc("File", doc.name, ignore_on_trash=True)
+		
 
 @frappe.whitelist()
 def download_from_s3(doc_name):
 	doc = frappe.get_doc("File", doc_name)
 	conn = MinioConnection(doc)
 	conn.download_file(action_type="download")
+
+@frappe.whitelist()
+def read_from_s3(doc_name):
+	doc = frappe.get_doc("File", doc_name)
+	conn = MinioConnection(doc)
+	conn.read_file()
 
 
 @frappe.whitelist(allow_guest=True)
@@ -170,3 +214,15 @@ def clone_files(action_type):
 		doc = frappe.get_doc("File", file)
 		conn = MinioConnection(doc)
 		conn.download_file(action_type=action_type)
+
+def replace_umlauts(text:str) -> str:
+	"""replace special German umlauts (vowel mutations) from text. 
+	ä -> ae...
+	ü -> ue 
+	"""
+	vowel_char_map = {ord('ä'):'ae', ord('ü'):'ue', ord('ö'):'oe', ord('ß'):'ss', ord('\u0308'):''}
+	return text.translate(vowel_char_map)
+
+def append_id(hash, filename):
+	name, ext = os.path.splitext(filename)
+	return "{name}_{uid}{ext}".format(name=name, uid=hash[:4], ext=ext)
