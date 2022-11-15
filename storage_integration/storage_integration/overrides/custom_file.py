@@ -31,7 +31,7 @@ URL_PREFIXES = ("http://", "https://")
 
 
 class CustomFile(Document):
-    import urllib.request
+	import urllib.request
 	no_feed_on_delete = True
 
 	def __init__(self, *args, **kwargs):
