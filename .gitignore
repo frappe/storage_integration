@@ -4,3 +4,4 @@
 *.swp
 tags
 storage_integration/docs/current
+__pycache__/
